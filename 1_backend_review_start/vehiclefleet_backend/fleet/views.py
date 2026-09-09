@@ -27,3 +27,10 @@ class DriverViewSet(ModelViewSet):
     serializer_class = DriverSerializer
     filter_backends =[SearchFilter]
     search_fields = ["name", "license_number", "email"]
+
+class TripViewSet(ModelViewSet):
+    serializer_class = TripSerializer
+
+    def get_queryset(self):
+        # select_related is an optimization that runs an SQL JOIN rather than N+1 Queries
+        return Trip.objects.select_related("vehicle", "driver").all()
