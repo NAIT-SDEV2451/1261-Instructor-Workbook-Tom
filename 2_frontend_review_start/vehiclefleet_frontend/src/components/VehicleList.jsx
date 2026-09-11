@@ -24,3 +24,5 @@ function VehicleList({ vehicles }) {
     </div>
   );
 }
+
+export default VehicleList;
