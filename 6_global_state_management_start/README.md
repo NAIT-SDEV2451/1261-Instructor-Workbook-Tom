@@ -108,26 +108,25 @@ Let's talk about what this code is doing.
 
 ### 4. Update `useTrips` in `src/hooks/useTrips.js`
 
-The hook accepts a page number and passes it to `fetchTrips`. Rather than including the page in the query key — which would create a separate cache entry per page — we keep the key as `['trips']` and use `useEffect` to invalidate the query whenever the page changes. This keeps the pagination state (owned by `PaginationContext`) cleanly separated from the data-fetching cache key.
+The hook accepts a page number and passes it to `fetchTrips`. The page is included in the query key, so React Query keeps a separate cache entry for each page. `keepPreviousData` keeps the current page on screen while the next one loads, so the list doesn't flash empty between pages.
 
 ```js
 // src/hooks/useTrips.js
 
-import { useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query'
 import { fetchTrips, createTrip } from '../api/fleet'
 
 export function useTrips(page = 1) {
-  const queryClient = useQueryClient()
-
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['trips'],
+    queryKey: ['trips', page],
     queryFn: () => fetchTrips(page),
+    placeholderData: keepPreviousData,
   })
-
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['trips'] })
-  }, [page])
 
   return {
     trips: data ?? { results: [], count: 0 },
@@ -149,13 +148,13 @@ export function useCreateTrip() {
 ```
 
 Let's talk about what this code is doing.
-- `queryKey: ['trips']` is a stable key — it never changes, so React Query maintains a single cache entry for the trips list at any point in time.
-- `queryFn: () => fetchTrips(page)` captures the current `page` value in a closure. Each time the query runs — on mount or after an invalidation — it calls `fetchTrips` with the latest page.
-- `useEffect(() => { queryClient.invalidateQueries(...) }, [page])` watches for page changes. When `page` changes, `invalidateQueries` marks the `['trips']` entry as stale. Because the query is being observed by a mounted component, React Query immediately refetches using the updated `queryFn` closure, which now captures the new page number.
+- `queryKey: ['trips', page]` gives each page its own cache entry. When `page` changes, the key changes, and React Query fetches that page on its own. There's no `useEffect` and no manual invalidation. If you go back to a page you've already loaded, it shows the cached results right away.
+- `queryFn: () => fetchTrips(page)` calls `fetchTrips` with the page from the key. Because `page` is part of the key, the key and the data it holds always match.
+- `placeholderData: keepPreviousData` shows the previous page's data while the new page loads. Without it, `data` would be `undefined` during each page change, and the list would go blank or show the loading spinner before the new results arrived.
 - `trips: data ?? { results: [], count: 0 }` returns the full paginated response object rather than extracting individual fields. Consumers access `trips.results` for the array and `trips.count` for the total — keeping the response shape intact and making it obvious what the backend returned.
 - This design keeps pagination state in `PaginationContext` and fetching logic in `useTrips`. Neither knows the internals of the other — swapping one does not require touching the other.
-- `hasNext` and `hasPrevious` are no longer returned. Those boundary booleans are now derived inside `usePagination` from `page` and `totalPages`, keeping `useTrips` focused purely on fetching.
-- `useCreateTrip`'s `invalidateQueries({ queryKey: ['trips'] })` continues to work unchanged — there is now only one `['trips']` cache entry to invalidate after a mutation, rather than one per page.
+- `useTrips` doesn't return `hasNext` or `hasPrevious`. The page works those out itself in step 5, and later `usePagination` takes over (step 8). This keeps `useTrips` focused purely on fetching.
+- `useCreateTrip`'s `invalidateQueries({ queryKey: ['trips'] })` still works. It does a partial match: every key that starts with `'trips'` (`['trips', 1]`, `['trips', 2]`, and so on) is marked stale, so every cached page reloads after a new trip is created.
 
 ---
 
@@ -175,8 +174,11 @@ import { useStats } from '../hooks/useStats'
 
 function TripsPage() {
   const [page, setPage] = useState(1)
-  const { trips, count, hasNext, hasPrevious, isLoading } = useTrips(page)
+  const { trips, isLoading } = useTrips(page)
   const { stats } = useStats()
+
+  const hasPrevious = page > 1
+  const hasNext = !!trips.next
 
   return (
     <div className="flex flex-col gap-6">
@@ -194,7 +196,7 @@ function TripsPage() {
         <h2 className="text-xl font-semibold mb-3">Trips</h2>
         {isLoading
           ? <span className="loading loading-spinner loading-md" />
-          : <TripList trips={trips} />
+          : <TripList trips={trips.results} />
         }
         <div className="flex items-center gap-3 mt-4">
           <button
@@ -204,7 +206,7 @@ function TripsPage() {
           >
             Previous
           </button>
-          <span className="text-sm text-base-content/60">{count} trips total</span>
+          <span className="text-sm text-base-content/60">{trips.count} trips total</span>
           <button
             className="btn btn-sm btn-outline"
             disabled={!hasNext}
@@ -223,9 +225,11 @@ export default TripsPage
 
 Let's talk about what this code is doing.
 - `useState(1)` initialises the page on load to page 1. Updating it triggers a re-render; the new value flows into `useTrips(page)`, changes the `queryKey`, and React Query fetches the new page.
+- `hasPrevious = page > 1` and `hasNext = !!trips.next` decide whether each button is enabled. DRF sets `next` to a URL when there is another page and to `null` on the last page, so `!!` turns it into `true` or `false`.
+- `<TripList trips={trips.results} />` passes only the array of trips for this page. `TripList` still expects an array, not the whole paginated response.
 - `disabled={!hasPrevious}` and `disabled={!hasNext}` prevent the user from navigating past the first or last page without needing to track the total page count explicitly.
 - `onClick={() => setPage(p => p - 1)}` uses the functional updater form to avoid stale closure issues — `p` is always the current value at click time.
-- The `{count} trips total` label gives users context about the full dataset size without loading all records.
+- The `{trips.count} trips total` label gives users context about the full dataset size without loading all records.
 - The stat cards and chart are unchanged — they call `useStats`, which is a separate query unaffected by the pagination state.
 
 ---
@@ -268,14 +272,40 @@ export function PaginationProvider({ pageSize = 5, children }) {
 Let's talk about what this code is doing.
 - `createContext(null)` creates the context object. The `null` default is only used when a component calls `useContext` outside of any provider — we will guard against that in the hook.
 - `PaginationContext.Provider` makes the `value` object available to every descendant component. Any component inside the provider can read `page`, call `goToNext`, etc. — without receiving them as props.
-- `totalCount` and `setTotalCount` are held in the context because the data-fetching component (`TripsContent`) learns the total after fetching and needs to share it with the pagination controls (`TripsPagination`). Neither component is the parent of the other, so context is the right tool.
+- `totalCount` and `setTotalCount` are held in the context because the data-fetching component (`TripsPage`) learns the total after fetching and needs to share it with the pagination controls (`TripsPagination`). Neither component is the parent of the other, so context is the right tool.
 - `totalPages = Math.ceil(totalCount / pageSize) || 1` derives the page count from the total. The `|| 1` guards against a zero before the first fetch so the `goToNext` clamp `Math.min(p + 1, totalPages)` never produces `0`.
 - `goToNext`, `goToPrevious`, and `goToPage` are defined as arrow functions inside the provider so they always close over the latest `totalPages` value. Putting navigation logic in the context means any consumer can trigger navigation without knowing about `setPage`.
 - `pageSize` is accepted as a prop so the provider can be reused for other lists with different page sizes.
 
 ---
 
-### 7. Create `src/hooks/usePagination.js`
+### 7. Add `PaginationProvider` to the trips route in `src/App.jsx`
+
+`PaginationProvider` belongs at the route level in `App.jsx`. Wrapping the trips route puts the provider above `TripsPage` in the tree, so once we have a hook to read the context, `TripsPage` and any component inside it can use the shared state directly.
+
+```jsx
+// src/App.jsx
+
+import { PaginationProvider } from './contexts/PaginationContext'
+// ... other imports unchanged ...
+
+<Route
+  path="/trips"
+  element={
+    <PaginationProvider pageSize={5}>
+      <TripsPage />
+    </PaginationProvider>
+  }
+/>
+```
+
+Let's talk about what this code is doing.
+- Placing `PaginationProvider` on the trips route is the natural home for a provider that is scoped to a single page. The provider mounts when the route activates and unmounts when the user navigates away, resetting pagination state automatically.
+- Nothing reads the context yet, so the app behaves exactly as before — `TripsPage` still uses its own `useState` from step 5. The next two steps build the hook and the component that read from the context.
+
+---
+
+### 8. Create `src/hooks/usePagination.js`
 
 Rather than calling `useContext(PaginationContext)` directly in every component, we wrap it in a dedicated hook. The hook also derives convenience booleans and throws a clear error if the hook is used outside a provider.
 
@@ -313,7 +343,7 @@ Let's talk about what this code is doing.
 
 ---
 
-### 8. Create `src/components/TripsPagination.jsx`
+### 9. Create `src/components/TripsPagination.jsx` and update `src/pages/TripsPage.jsx`
 
 The pagination buttons are now their own component. They read everything they need from the context via `usePagination` — no props required.
 
@@ -352,33 +382,11 @@ export default TripsPagination
 ```
 
 Let's talk about what this code is doing.
-- `TripsPagination` calls `usePagination()` and receives everything it needs: the current page, total pages, boundary booleans, and navigation functions. Its parent (`TripsContent`) passes it zero props.
+- `TripsPagination` calls `usePagination()` and receives everything it needs: the current page, total pages, boundary booleans, and navigation functions. Its parent (`TripsPage`) passes it zero props.
 - This is the payoff of using context: `TripsPagination` could be moved anywhere inside the `PaginationProvider` tree — into a footer, a sidebar, or a mobile drawer — without any changes to the component itself or its parent.
 - `onClick={goToNext}` passes the function reference directly rather than wrapping it in an arrow function, since `goToNext` already encapsulates the page-clamping logic.
 
----
-
-### 9. Add `PaginationProvider` to the trips route in `src/App.jsx` and update `src/pages/TripsPage.jsx`
-
-`PaginationProvider` belongs at the route level in `App.jsx`. This makes `TripsPage` a straightforward single component — it calls `usePagination` freely because the provider is already above it in the tree when the route renders.
-
-```jsx
-// src/App.jsx
-
-import { PaginationProvider } from './contexts/PaginationContext'
-// ... other imports unchanged ...
-
-<Route
-  path="/trips"
-  element={
-    <PaginationProvider pageSize={5}>
-      <TripsPage />
-    </PaginationProvider>
-  }
-/>
-```
-
-With the provider in place, `TripsPage` is a single clean component with no inner wrapper:
+With the provider, the hook, and `TripsPagination` in place, `TripsPage` can drop its local page state and its inline buttons:
 
 ```jsx
 // src/pages/TripsPage.jsx
@@ -431,9 +439,8 @@ export default TripsPage
 ```
 
 Let's talk about what this code is doing.
-- Placing `PaginationProvider` in `App.jsx` on the trips route is the natural home for a provider that is scoped to a single page. The provider mounts when the route activates and unmounts when the user navigates away, resetting pagination state automatically.
+- `useState` and the inline Previous/Next buttons from step 5 are gone. The page number now comes from the context, and the buttons live in `TripsPagination`.
 - `TripsPage` calls `usePagination()` directly because by the time React renders `TripsPage`, `PaginationProvider` is already above it in the tree. There is no need for an inner wrapper component.
-- `TripsPage` no longer imports `PaginationProvider` — that responsibility has moved to `App.jsx`. The page component only imports what it uses directly.
 - `useEffect(() => { if (trips.count !== undefined) setTotalCount(trips.count) }, [trips.count, setTotalCount])` writes the server's total back into the context whenever a new page loads. `TripsPagination` then reads `totalPages` from the context to display `Page 2 of 4` without `TripsPage` needing to pass anything to it as a prop.
 - `TripsPagination` and `TripsPage` are siblings in the component tree — neither is the parent of the other. Their shared state lives in `PaginationContext` above both of them. This is the core idea of the Context API: **lift shared state up** into a provider and **consume it sideways** from any descendant, without threading props through intermediate components.
 
@@ -445,11 +452,55 @@ The steps below are independent of pagination. They can be implemented any time 
 
 ---
 
-### 10. Create `src/contexts/NotificationContext.jsx`
+### 10. Create `src/components/Toast.jsx`
+
+`Toast` is a regular component in the `components/` folder. It receives the current notification and a hide function as props. In the next step, `NotificationProvider` will own that state and render `Toast` for us.
+
+```jsx
+// src/components/Toast.jsx
+
+import { useEffect } from 'react'
+
+const AUTO_HIDE_MS = 3000
+
+function Toast({ notification, hide }) {
+  useEffect(() => {
+    if (!notification) return
+    const timer = setTimeout(hide, AUTO_HIDE_MS)
+    return () => clearTimeout(timer)
+  }, [notification, hide])
+
+  if (!notification) return null
+
+  const alertClass = notification.type === 'success' ? 'alert-success' : 'alert-error'
+
+  return (
+    <div className="toast toast-top toast-end z-50">
+      <div className={`alert ${alertClass} flex justify-between gap-4`}>
+        <span>{notification.message}</span>
+        <button className="btn btn-xs btn-ghost" onClick={hide}>✕</button>
+      </div>
+    </div>
+  )
+}
+
+export default Toast
+```
+
+Let's talk about what this code is doing.
+- `if (!notification) return null` — when there is no active notification, the component renders nothing. This is the React pattern for conditionally rendering UI: return `null` rather than an empty container.
+- `useEffect([notification, hide])` — each time a new notification is set, the effect starts a `setTimeout` that calls `hide` after `AUTO_HIDE_MS`. The cleanup function (`return () => clearTimeout(timer)`) cancels the previous timer if a new notification arrives before the old one has auto-hidden. Without the cleanup, stacking two notifications quickly would leave a timer from the first one that fires unexpectedly.
+- `notification.type === 'success' ? 'alert-success' : 'alert-error'` maps the type to a DaisyUI colour class. Adding a new type (e.g. `'warning'`) is a one-line change here.
+- The `✕` dismiss button calls `hide` immediately so users can close the toast without waiting for the timeout.
+- `Toast` has no import from `NotificationContext` — it is a plain presentational component. Its only job is to display what it is given and call back when dismissed.
+
+---
+
+### 11. Create `src/contexts/NotificationContext.jsx`
 
 Any component in the app can trigger a toast — `CreateTripPage` after a mutation, `TripDetailPage` after a status transition — but they are all different parts of the component tree. Without a shared context, each one would need the notification callback threaded down as a prop. `NotificationContext` lifts that state to the top of the tree so any component can call `showSuccess` or `showError` directly.
 
-`NotificationProvider` renders the `Toast` component itself, so consumers just wrap with `NotificationProvider` and get the toast for free — no extra imports needed in `App.jsx`.
+`NotificationProvider` renders the `Toast` component we just built, so consumers just wrap with `NotificationProvider` and get the toast for free — no extra imports needed in `App.jsx`.
 
 ```jsx
 // src/contexts/NotificationContext.jsx
@@ -492,77 +543,9 @@ Let's talk about what this code is doing.
 
 ---
 
-### 11. Create `src/components/Toast.jsx`
+### 12. Wrap `src/App.jsx` with `NotificationProvider`
 
-`Toast` is a regular component in the `components/` folder. It receives the current notification and the hide function as props — it has no direct dependency on `NotificationContext`.
-
-```jsx
-// src/components/Toast.jsx
-
-import { useEffect } from 'react'
-
-const AUTO_HIDE_MS = 3000
-
-function Toast({ notification, hide }) {
-  useEffect(() => {
-    if (!notification) return
-    const timer = setTimeout(hide, AUTO_HIDE_MS)
-    return () => clearTimeout(timer)
-  }, [notification, hide])
-
-  if (!notification) return null
-
-  const alertClass = notification.type === 'success' ? 'alert-success' : 'alert-error'
-
-  return (
-    <div className="toast toast-top toast-end z-50">
-      <div className={`alert ${alertClass} flex justify-between gap-4`}>
-        <span>{notification.message}</span>
-        <button className="btn btn-xs btn-ghost" onClick={hide}>✕</button>
-      </div>
-    </div>
-  )
-}
-
-export default Toast
-```
-
-Let's talk about what this code is doing.
-- `if (!notification) return null` — when there is no active notification, the component renders nothing. This is the React pattern for conditionally rendering UI: return `null` rather than an empty container.
-- `useEffect([notification, hide])` — each time a new notification is set, the effect starts a `setTimeout` that calls `hide` after `AUTO_HIDE_MS`. The cleanup function (`return () => clearTimeout(timer)`) cancels the previous timer if a new notification arrives before the old one has auto-hidden. Without the cleanup, stacking two notifications quickly would leave a timer from the first one that fires unexpectedly.
-- `notification.type === 'success' ? 'alert-success' : 'alert-error'` maps the type to a DaisyUI colour class. Adding a new type (e.g. `'warning'`) is a one-line change here.
-- The `✕` dismiss button calls `hide` immediately so users can close the toast without waiting for the timeout.
-- `Toast` has no import from `NotificationContext` — it is a plain presentational component. Its only job is to display what it is given and call back when dismissed.
-
----
-
-### 12. Create `src/hooks/useNotification.js`
-
-```js
-// src/hooks/useNotification.js
-
-import { useContext } from 'react'
-import { NotificationContext } from '../contexts/NotificationContext'
-
-export function useNotification() {
-  const context = useContext(NotificationContext)
-  if (!context) {
-    throw new Error('useNotification must be used inside a NotificationProvider')
-  }
-  return context
-}
-```
-
-Let's talk about what this code is doing.
-- The hook returns the context value — `{ showSuccess, showError, hide }`. Components destructure only what they need: a page that triggers mutations imports `{ showSuccess, showError }`.
-- The `if (!context)` guard throws a descriptive error when the hook is called outside a `NotificationProvider`. Without it, the `null` default value would cause a confusing `TypeError` when a consumer tries to destructure it.
-- This pattern — one `createContext`, one Provider, one hook — is the same structure used for `PaginationContext`. Once you recognise the pattern, reading and building new contexts becomes mechanical.
-
----
-
-### 13. Wrap `src/App.jsx` with `NotificationProvider`
-
-`NotificationProvider` must be the outermost wrapper so every page component can call `showSuccess` or `showError`. Because `Toast` is rendered inside the provider itself, `App.jsx` does not need to import or place `<Toast />` anywhere.
+`NotificationProvider` must be the outermost wrapper so every page component can reach the context. In the next step we add the `useNotification` hook that pages use to call `showSuccess` or `showError`. Because `Toast` is rendered inside the provider itself, `App.jsx` does not need to import or place `<Toast />` anywhere.
 
 ```jsx
 // src/App.jsx
@@ -596,6 +579,30 @@ Let's talk about what this code is doing.
 - `NotificationProvider` wraps `QueryClientProvider` and `BrowserRouter`. The order relative to those two providers does not matter — `NotificationContext` has no dependency on React Query or React Router.
 - There is no `<Toast />` in this file. The provider renders the toast itself, so the only change to `App.jsx` is adding the `NotificationProvider` wrapper and its import.
 - Because every page component is a descendant of `NotificationProvider`, they all read from the same context instance — one `notification` state shared across the whole app.
+
+---
+
+### 13. Create `src/hooks/useNotification.js`
+
+```js
+// src/hooks/useNotification.js
+
+import { useContext } from 'react'
+import { NotificationContext } from '../contexts/NotificationContext'
+
+export function useNotification() {
+  const context = useContext(NotificationContext)
+  if (!context) {
+    throw new Error('useNotification must be used inside a NotificationProvider')
+  }
+  return context
+}
+```
+
+Let's talk about what this code is doing.
+- The hook returns the context value — `{ showSuccess, showError, hide }`. Components destructure only what they need: a page that triggers mutations imports `{ showSuccess, showError }`.
+- The `if (!context)` guard throws a descriptive error when the hook is called outside a `NotificationProvider`. Without it, the `null` default value would cause a confusing `TypeError` when a consumer tries to destructure it.
+- This pattern — one `createContext`, one Provider, one hook — is the same structure used for `PaginationContext`. Once you recognise the pattern, reading and building new contexts becomes mechanical.
 
 ---
 
@@ -671,13 +678,14 @@ In this example we learned about:
 - **`@action(detail=True)` bypasses the list paginator** — custom detail actions operate on a single object and are not affected by the paginator set on the viewset
 - **`queryKey` includes the page number** — scoping the cache key to `['trips', page]` gives each page its own cache entry so back-navigation returns cached results instantly
 - **Partial key invalidation** — `invalidateQueries({ queryKey: ['trips'] })` matches all keys that start with `'trips'`, invalidating every cached page at once after a mutation
-- **`data?.results ?? []`** — the response shape changed from a plain array to an object; optional chaining and a `[]` default keep the component safe while data is loading
-- **`!!data?.next` / `!!data?.previous`** — coercing the URL string or `null` to a boolean is the simplest way to derive `hasNext` / `hasPrevious` without parsing the URL
+- **`trips.results`** — the response shape changed from a plain array to a `{ count, next, previous, results }` object; `useTrips` defaults to `{ results: [], count: 0 }` so `trips.results` is always safe to pass to `TripList`
+- **`placeholderData: keepPreviousData`** — keeps the previous page on screen while the next page loads, so the list doesn't go blank on every page change
+- **`!!trips.next`** — coercing the `next` URL string or `null` to a boolean is the simplest way to derive `hasNext` without parsing the URL
 - **React Context API** — `createContext` creates a shared value; `Provider` makes it available to all descendants; `useContext` reads it from any component in the tree, eliminating prop drilling
-- **Narrow the provider scope** — wrapping only the components that need shared state (the trips section) rather than the entire page keeps the context's blast radius small and makes re-renders predictable
+- **Narrow the provider scope** — wrapping only the route that needs shared state (the trips page) rather than the entire app keeps the context's blast radius small and makes re-renders predictable
 - **Derived values belong in the hook, not the context** — `hasNext` and `hasPrevious` are computed in `usePagination` from `page` and `totalPages`; the context itself stores only the primitive state it needs to persist
 - **Guard `useContext` with a null check** — returning a descriptive error from the hook when the context is `null` surfaces the "missing provider" mistake immediately rather than producing a cryptic `TypeError` deep in the component tree
-- **Sibling components sharing state through context** — `TripsContent` (writes `totalCount`) and `TripsPagination` (reads `totalPages`) are siblings; neither is the parent of the other; context is the right tool when siblings need shared state and lifting it to a common ancestor would require passing props through uninterested intermediaries
-- **`useEffect` to sync server data into context** — calling `setTotalCount(count)` inside a `useEffect` that depends on `count` writes the server's total back into the context after each page fetch; `TripsPagination` then derives `totalPages` without needing a prop from `TripsContent`
+- **Sibling components sharing state through context** — `TripsPage` (writes `totalCount`) and `TripsPagination` (reads `totalPages`) are siblings; neither is the parent of the other; context is the right tool when siblings need shared state and lifting it to a common ancestor would require passing props through uninterested intermediaries
+- **`useEffect` to sync server data into context** — calling `setTotalCount(count)` inside a `useEffect` that depends on `count` writes the server's total back into the context after each page fetch; `TripsPagination` then derives `totalPages` without needing a prop from `TripsPage`
 - **Caution — the `count` in the stats card and `count` from pagination are different values.** The stats endpoint's `total_trips` is computed by a separate aggregation query; the paginator's `count` comes from the trips queryset. They should agree, but if you add filtering to `TripViewSet` later (e.g. `filter_backends`), the paginator `count` will reflect the filtered set while `total_trips` in stats will not.
 - **Caution — resetting `page` to 1 when filters change is essential.** If the user is on page 3 and applies a filter that yields only 2 pages, requesting page 3 will return an empty `results` array. Always reset page state to 1 when any parameter that affects the queryset changes.
