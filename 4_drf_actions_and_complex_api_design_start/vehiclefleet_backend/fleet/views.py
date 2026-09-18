@@ -1,4 +1,9 @@
-from django.db.models import Count
+from datetime import timedelta
+
+from django.db.models import Avg, Count
+from django.db.models.functions import TruncWeek
+from django.utils import timezone
+
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,10 +16,30 @@ from fleet.serializers import DriverSerializer, TripSerializer, VehicleSerialize
 class FleetStatsView(APIView):
 
     def get(self, request):
+        avg = Trip.objects.aggregate(avg_distance=Avg("distance"))["avg_distance"]
+
+        six_months_ago = timezone.now() - timedelta(weeks=26)
+
+        weekly_avg_distance = list(
+            Trip.objects
+            .filter(start_time__gte=six_months_ago, distance__isnull=False)
+            .annotate(week=TruncWeek("start_time"))
+            .values("week")
+            .annotate(avg_distance=Avg("distance"))
+            .order_by("week")
+            .values_list("week", "avg_distance")
+        )
+
         return Response({
             "total_vehicles": Vehicle.objects.count(),
             "total_drivers": Driver.objects.count(),
             "total_trips": Trip.objects.count(),
+            "avg_trip_distance": round(avg, 2) if avg is not None else None,
+            "avg_distance_per_week": [{
+                "week": week.strftime("%Y-%m-%d"),
+                "avg_distance": round(float(avg_distance), 2)
+            } for week,avg_distance in weekly_avg_distance]
+            
         })
 
 
