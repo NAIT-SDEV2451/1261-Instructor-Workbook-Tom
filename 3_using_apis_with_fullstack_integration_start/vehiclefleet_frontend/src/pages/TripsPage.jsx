@@ -1,13 +1,19 @@
-import TripList from '../components/TripList'
-import { TRIPS } from '../mockData'
+import TripList from "../components/TripList";
+import { useTrips } from "../hooks/useTrips";
 
 function TripsPage() {
+  const { trips, isLoading } = useTrips();
+
   return (
     <div>
       <h2 className="text-xl font-semibold mb-3">Trips</h2>
-      <TripList trips={TRIPS} />
+      {isLoading ? (
+        <span className="loading loading-spinner loading-md" />
+      ) : (
+        <TripList trips={trips} />
+      )}
     </div>
-  )
+  );
 }
 
-export default TripsPage
+export default TripsPage;

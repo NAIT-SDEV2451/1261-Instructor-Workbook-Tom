@@ -19,7 +19,7 @@ export async function fetchTrips() {
 }
 
 export async function createTrip(data) {
-  const response = await fetch(`${BASE_URL}/trips`, {
+  const response = await fetch(`${BASE_URL}/trips/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
