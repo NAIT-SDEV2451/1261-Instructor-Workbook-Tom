@@ -1,4 +1,8 @@
 from datetime import timedelta
+import time
+
+from geopy.distance import geodesic
+from geopy.geocoders import Nominatim
 
 from django.db.models import Avg, Count
 from django.db.models.functions import TruncWeek
@@ -8,9 +12,11 @@ from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
 
 from fleet.models import Driver, Trip, Vehicle
 from fleet.serializers import DriverSerializer, TripSerializer, VehicleSerializer
+
 
 
 class FleetStatsView(APIView):
@@ -62,3 +68,48 @@ class TripViewSet(ModelViewSet):
 
     def get_queryset(self):
         return Trip.objects.select_related("vehicle", "driver").all()
+
+    @action(detail=True, methods=["get"])
+    def map(self, request, pk=None):
+        trip = self.get_object()
+        needs_save = False
+        geocoding_started = False
+
+        geolocator = Nominatim(user_agent="vehiclefleet-app")
+
+        if trip.start_lat is None or trip.start_lng is None:
+            result = geolocator.geocode(trip.start_location)
+            if result:
+                trip.start_lat = result.latitude
+                trip.start_lng = result.longitude
+                needs_save = True
+            geocoding_started = True
+
+
+        if trip.end_lat is None or trip.end_lng is None:
+            if geocoding_started:
+                time.sleep(1) # Nominatim limits us to 1 request per second
+            result = geolocator.geocode(trip.end_location)
+            if result:
+                trip.end_lat = result.latitude
+                trip.end_lng = result.longitude
+                needs_save = True
+
+        if needs_save:
+            start = (float(trip.start_lat), float(trip.start_lng))
+            end = (float(trip.end_lat), float(trip.end_lng))
+            trip.distance = round(geodesic(start, end).km, 2)
+            trip.save(update_fields=["start_lat", "start_lng", "end_lat", "end_lng", "distance"])
+
+        serializer = self.get_serializer(trip)
+        return Response({
+            **serializer.data,
+            "start_coordinates": {
+                "lat": float(trip.start_lat),
+                "lng": float(trip.start_lng)
+            } if trip.start_lat is not None else None,
+            "end_coordinates": {
+                "lat": float(trip.end_lat),
+                "lng": float(trip.end_lng)
+            }if trip.end_lat is not None else None
+        })
