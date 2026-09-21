@@ -1,10 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchDrivers } from '../api/fleet'
+import { useQuery } from "@tanstack/react-query";
+import { fetchDrivers } from "../api/fleet";
 
-export function useDrivers() {
-  const { data: drivers = [], isLoading, isError, error } = useQuery({
-    queryKey: ['drivers'],
-    queryFn: fetchDrivers,
-  })
-  return { drivers, isLoading, isError, error }
+export function useDrivers(search = "") {
+  const {
+    data: drivers = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["drivers", search],
+    queryFn: () => fetchDrivers(search),
+  });
+  return { drivers, isLoading, isError, error };
 }
