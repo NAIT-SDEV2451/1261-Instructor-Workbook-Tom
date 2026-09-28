@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from fleet.models import Driver, Trip, Vehicle
-from fleet.pagination import TripPagination
+from fleet.pagination import TripPagination, ApiViewPagination
 from fleet.serializers import DriverSerializer, TripSerializer, VehicleSerializer
 
 
@@ -70,6 +70,16 @@ class DriverViewSet(ModelViewSet):
     filter_backends = [SearchFilter]
     search_fields = ["name", "license_number", "email"]
 
+class SampleTripView(APIView):
+
+    def get(self, request):
+        trips = Trip.objects.all()
+
+        paginator = ApiViewPagination()
+        page = paginator.paginate_queryset(trips, request)
+        serializer = TripSerializer(page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
 
 class TripViewSet(ModelViewSet):
     """ViewSet — full CRUD for Trip."""
