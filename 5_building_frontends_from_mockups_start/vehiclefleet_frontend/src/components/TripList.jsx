@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 function TripList({ trips }) {
   return (
     <div className="overflow-x-auto">
@@ -17,22 +19,31 @@ function TripList({ trips }) {
           {trips.map((trip) => (
             <tr key={trip.id}>
               <td>{trip.id}</td>
-              <td>{trip.vehicle_detail.make} {trip.vehicle_detail.model}</td>
+              <td>
+                {trip.vehicle_detail.make} {trip.vehicle_detail.model}
+              </td>
               <td>{trip.driver_detail.name}</td>
               <td>{trip.start_location}</td>
               <td>{trip.end_location}</td>
               <td>{new Date(trip.start_time).toLocaleString()}</td>
               <td>
                 {trip.distance ?? (
-                  <span className="badge badge-warning badge-sm">In progress</span>
+                  <span className="badge badge-warning badge-sm">
+                    In progress
+                  </span>
                 )}
+              </td>
+              <td>
+                <Link to={`/trips/${trip.id}`} className="btn btn-xs btn-ghost">
+                  View Details
+                </Link>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  )
+  );
 }
 
-export default TripList
+export default TripList;

@@ -74,6 +74,21 @@ class TripViewSet(ModelViewSet):
     def get_queryset(self):
         return Trip.objects.select_related("vehicle", "driver").all()
 
+    @action(detail=True, methods=["post"])
+    def start(self, request, pk=None):
+        trip = self.get_object()
+        trip.status = Trip.STATUS_IN_PROGRESS
+        trip.save(update_fields=["status"])
+        return Response(self.get_serializer(trip).data)
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        trip = self.get_object()
+        trip.status = Trip.STATUS_COMPLETED
+        trip.end_time = timezone.now()
+        trip.save(update_fields=["status", "end_time"])
+        return Response(self.get_serializer(trip).data)
+
     @action(detail=True, methods=["get"])
     def map(self, request, pk=None):
         trip = self.get_object()
@@ -119,18 +134,3 @@ class TripViewSet(ModelViewSet):
                 "lng": float(trip.end_lng),
             } if trip.end_lat is not None else None,
         })
-
-    @action(detail=True, methods=["post"])
-    def start(self, request, pk=None):
-        trip = self.get_object()
-        trip.status = Trip.STATUS_IN_PROGRESS
-        trip.save(update_fields=["status"])
-        return Response(self.get_serializer(trip).data)
-
-    @action(detail=True, methods=["post"])
-    def complete(self, request, pk=None):
-        trip = self.get_object()
-        trip.status = Trip.STATUS_COMPLETED
-        trip.end_time = timezone.now()
-        trip.save(update_fields=["status", "end_time"])
-        return Response(self.get_serializer(trip).data)
