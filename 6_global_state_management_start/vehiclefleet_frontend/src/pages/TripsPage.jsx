@@ -3,7 +3,9 @@ import StatCard from "../components/StatCard";
 import AverageDistanceChart from "../components/AverageDistanceChart";
 import { useTrips } from "../hooks/useTrips";
 import { useStats } from "../hooks/useStats";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePagination } from "../hooks/usePagination";
+import TripsPagination from "../components/TripsPagination";
 
 const STAT_CARDS = [
   {
@@ -29,12 +31,13 @@ const STAT_CARDS = [
 ];
 
 function TripsPage() {
-  const [page, setPage] = useState(1);
-  const { trips, isLoading } = useTrips(page);
   const { stats } = useStats();
+  const { page, setTotalCount } = usePagination();
+  const { trips, isLoading } = useTrips(page);
 
-  const hasPrevious = page > 1;
-  const hasNext = !!trips.next;
+  useEffect(() => {
+    if (trips.count !== undefined) setTotalCount(trips.count);
+  }, [trips.count, setTotalCount]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,23 +63,7 @@ function TripsPage() {
         ) : (
           <TripList trips={trips.results} />
         )}
-        <div className="flex items-center gap-3 mt-4">
-          <button
-            className="btn btn-sm btn-outline"
-            disabled={!hasPrevious}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </button>
-          <span>{trips.count} trips total</span>
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={() => setPage((p) => p + 1)}
-            disabled={!hasNext}
-          >
-            Next
-          </button>
-        </div>
+        <TripsPagination />
       </div>
     </div>
   );

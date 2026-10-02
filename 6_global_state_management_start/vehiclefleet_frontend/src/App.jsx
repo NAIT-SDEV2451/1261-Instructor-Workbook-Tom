@@ -1,11 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import VehiclesAndDriversPage from './pages/VehiclesAndDriversPage'
-import TripsPage from './pages/TripsPage'
-import CreateTripPage from './pages/CreateTripPage'
-import TripDetailPage from './pages/TripDetailPage'
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import VehiclesAndDriversPage from "./pages/VehiclesAndDriversPage";
+import TripsPage from "./pages/TripsPage";
+import CreateTripPage from "./pages/CreateTripPage";
+import TripDetailPage from "./pages/TripDetailPage";
+import { PaginationProvider } from "./contexts/PaginationContext";
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient();
 
 function App() {
   return (
@@ -21,7 +22,7 @@ function App() {
                 to="/"
                 end
                 className={({ isActive }) =>
-                  `btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`
+                  `btn btn-sm ${isActive ? "btn-primary" : "btn-ghost"}`
                 }
               >
                 Vehicles &amp; Drivers
@@ -30,7 +31,7 @@ function App() {
                 to="/trips"
                 end
                 className={({ isActive }) =>
-                  `btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`
+                  `btn btn-sm ${isActive ? "btn-primary" : "btn-ghost"}`
                 }
               >
                 Trips
@@ -38,7 +39,7 @@ function App() {
               <NavLink
                 to="/trips/new"
                 className={({ isActive }) =>
-                  `btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`
+                  `btn btn-sm ${isActive ? "btn-primary" : "btn-ghost"}`
                 }
               >
                 Create Trip
@@ -49,7 +50,14 @@ function App() {
           <main className="p-6 max-w-6xl mx-auto">
             <Routes>
               <Route path="/" element={<VehiclesAndDriversPage />} />
-              <Route path="/trips" element={<TripsPage />} />
+              <Route
+                path="/trips"
+                element={
+                  <PaginationProvider pageSize={5}>
+                    <TripsPage />
+                  </PaginationProvider>
+                }
+              />
               <Route path="/trips/new" element={<CreateTripPage />} />
               <Route path="/trips/:id" element={<TripDetailPage />} />
             </Routes>
@@ -57,7 +65,7 @@ function App() {
         </div>
       </BrowserRouter>
     </QueryClientProvider>
-  )
+  );
 }
 
-export default App
+export default App;
