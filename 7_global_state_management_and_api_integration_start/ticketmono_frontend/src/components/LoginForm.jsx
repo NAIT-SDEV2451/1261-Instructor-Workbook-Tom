@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function LoginForm({ onSubmit }) {
+function LoginForm({ onSubmit, isLoading = false }) {
   const [username, setUserName] = useState("");
   const [password, setPassword] = useState("");
 
@@ -37,8 +37,16 @@ function LoginForm({ onSubmit }) {
           onChange={(e) => setPassword(e.target.value)}
         />
       </div>
-      <button type="submit" className="btn btn-primary w-full mt-2">
-        Log In
+      <button
+        disabled={isLoading}
+        type="submit"
+        className="btn btn-primary w-full mt-2"
+      >
+        {isLoading ? (
+          <span className="loading loading-spinner loading-sm" />
+        ) : (
+          "Log In"
+        )}
       </button>
     </form>
   );

@@ -10,6 +10,8 @@ import EventDetailPage from "./pages/attendee/EventDetailPage";
 import SelectTicketsPage from "./pages/attendee/SelectTicketsPage";
 import CheckoutPage from "./pages/attendee/CheckoutPage";
 
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+
 const queryClient = new QueryClient();
 
 function App() {
@@ -42,9 +44,20 @@ function App() {
                 <Route path="/events/:id" element={<EventDetailPage />} />
                 <Route
                   path="/events/:id/tickets"
-                  element={<SelectTicketsPage />}
+                  element={
+                    <ProtectedRoute>
+                      <SelectTicketsPage />
+                    </ProtectedRoute>
+                  }
                 />
-                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route
+                  path="/checkout"
+                  element={
+                    <ProtectedRoute>
+                      <CheckoutPage />
+                    </ProtectedRoute>
+                  }
+                />
               </Routes>
             </main>
           </div>

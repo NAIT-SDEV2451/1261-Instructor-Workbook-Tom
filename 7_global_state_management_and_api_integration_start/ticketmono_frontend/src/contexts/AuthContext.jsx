@@ -135,7 +135,7 @@ export function AuthProvider({ children }) {
     },
   });
 
-  value = {
+  const value = {
     // This is all the stuff that gets provided to the tree from AuthProvider
     user,
     accessToken,
