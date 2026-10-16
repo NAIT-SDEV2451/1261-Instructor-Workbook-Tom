@@ -1,11 +1,11 @@
 from rest_framework import viewsets
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Event
 from .serializers import EventListReadOnlySerializer
 
 class EventViewSet(viewsets.ModelViewSet):
-    permission_classes = (AllowAny,)
+    permission_classes = (IsAuthenticated,)
     queryset = Event.objects.select_related("venue", "organizer").prefetch_related("ticket_tiers")
 
     def get_serializer_class(self):
