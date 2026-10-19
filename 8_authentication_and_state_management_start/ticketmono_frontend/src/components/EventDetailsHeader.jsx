@@ -1,13 +1,24 @@
-function EventDetailsHeader() {
+function EventDetailsHeader({ event }) {
+  const date = new Date(event.date_time);
+  const formattedDate = date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const formattedTime = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
   return (
     <div className="bg-base-100 shadow rounded-box p-6 mb-6">
-      <h1 className="text-3xl font-bold mb-2">Summer Jazz Festival</h1>
-      <p className="text-base-content/60 mb-4">July 15, 2026 · 7:00 PM</p>
+      <h1 className="text-3xl font-bold mb-2">{event.name}</h1>
+      <p className="text-base-content/60 mb-4">
+        {formattedDate} · {formattedTime}
+      </p>
       <div>
-        <p className="font-semibold">Madison Square Garden</p>
-        <p className="text-sm text-base-content/60">
-          4 Pennsylvania Plaza, New York, NY 10001
-        </p>
+        <p className="font-semibold">{event.venue.name}</p>
+        <p className="text-sm text-base-content/60">{event.venue.address}</p>
       </div>
     </div>
   );

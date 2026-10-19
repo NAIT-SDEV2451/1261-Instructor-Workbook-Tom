@@ -14,11 +14,29 @@ const STATIC_TIERS = [
 function EventDetailPage() {
   const { id } = useParams();
   const { data: event, isLoading, isError } = useEvent(id);
-  console.log(event);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center mt-12">
+        <span className="loading loading-spinner loading-lg" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="alert alert-error">
+          <span>Failed to load event. Please try again later.</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <EventDetailsHeader />
-      <TicketTierList tiers={STATIC_TIERS} />
+      <EventDetailsHeader event={event} />
+      <TicketTierList tiers={event.ticket_tiers} />
     </div>
   );
 }

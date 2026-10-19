@@ -1,14 +1,34 @@
 import { useState } from "react";
+import { useCart } from "../hooks/useCart";
 
-function TicketTierSelector({ tier }) {
+function TicketTierSelector({ tier, eventId, eventName }) {
   const [quantity, setQuantity] = useState(0);
+  const { updateCart } = useCart();
 
   const increment = () => {
-    setQuantity((q) => q + 1);
+    const newQty = quantity + 1;
+    setQuantity(newQty);
+    updateCart({
+      eventId,
+      eventName,
+      quantity: newQty,
+      tierId: tier.id,
+      tierName: tier.name,
+      tierPrice: tier.price,
+    });
   };
 
   const decrement = () => {
-    setQuantity((q) => Math.max(0, q - 1));
+    const newQty = Math.max(0, quantity - 1);
+    setQuantity(newQty);
+    updateCart({
+      eventId,
+      eventName,
+      quantity: newQty,
+      tierId: tier.id,
+      tierName: tier.name,
+      tierPrice: tier.price,
+    });
   };
 
   return (
