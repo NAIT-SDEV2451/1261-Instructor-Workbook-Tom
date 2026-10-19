@@ -1,19 +1,17 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useEvent } from "../../hooks/useEvent";
 
 import EventDetailsHeader from "../../components/EventDetailsHeader";
 import TicketTierList from "../../components/TicketTierList";
-
-const STATIC_TIERS = [
-  { id: 1, name: "Floor", price: "150.00" },
-  { id: 2, name: "Lower Bowl", price: "85.00" },
-  { id: 3, name: "Upper Bowl", price: "45.00" },
-];
+import { useCart } from "../../hooks/useCart";
 
 function EventDetailPage() {
   const { id } = useParams();
   const { data: event, isLoading, isError } = useEvent(id);
+  const { items } = useCart();
+
+  const hasItems = Object.keys(items).length > 0;
 
   if (isLoading) {
     return (
@@ -36,7 +34,18 @@ function EventDetailPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <EventDetailsHeader event={event} />
-      <TicketTierList tiers={event.ticket_tiers} />
+      <TicketTierList
+        tiers={event.ticket_tiers}
+        eventId={event.id}
+        eventName={event.name}
+      />
+      {hasItems && (
+        <div className="mt-6">
+          <Link to="/checkout" className="btn btn-primary w-full">
+            Go To Checkout
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

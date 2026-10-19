@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useCart } from "../hooks/useCart";
 
 function TicketTierSelector({ tier, eventId, eventName }) {
-  const [quantity, setQuantity] = useState(0);
-  const { updateCart } = useCart();
+  const { items, updateCart } = useCart();
+  const [quantity, setQuantity] = useState(
+    items[`${eventId}-${tier.id}`]?.quantity ?? 0,
+  );
 
   const increment = () => {
     const newQty = quantity + 1;
