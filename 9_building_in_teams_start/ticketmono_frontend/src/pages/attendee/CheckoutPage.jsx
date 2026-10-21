@@ -1,12 +1,12 @@
-import { useCart } from '../../hooks/useCart'
+import { useCart } from "../../hooks/useCart";
 
 function CheckoutPage() {
-  const { items } = useCart()
-  const cartItems = Object.values(items)
+  const { items } = useCart();
+  const cartItems = Object.values(items);
   const grandTotal = cartItems.reduce(
     (sum, item) => sum + item.quantity * parseFloat(item.tierPrice),
-    0
-  )
+    0,
+  );
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -35,10 +35,13 @@ function CheckoutPage() {
             <span>Total</span>
             <span>${grandTotal.toFixed(2)}</span>
           </div>
+          <div className="mt-6">
+            <button className="btn btn-primary w-full">Place Order</button>
+          </div>
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default CheckoutPage
+export default CheckoutPage;
