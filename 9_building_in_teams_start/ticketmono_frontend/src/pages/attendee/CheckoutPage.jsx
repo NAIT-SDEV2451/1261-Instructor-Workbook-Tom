@@ -1,12 +1,23 @@
 import { useCart } from "../../hooks/useCart";
+import { useCreateOrder } from "../../hooks/useCreateOrder";
 
 function CheckoutPage() {
+  const { mutate, isPending, isSuccess } = useCreateOrder();
   const { items } = useCart();
   const cartItems = Object.values(items);
   const grandTotal = cartItems.reduce(
     (sum, item) => sum + item.quantity * parseFloat(item.tierPrice),
     0,
   );
+
+  function handlePlaceOrder() {
+    const orderItems = cartItems.map((item) => ({
+      event_id: item.eventId,
+      ticket_tier_id: item.tierId,
+      quantity: item.quantity,
+    }));
+    mutate(orderItems);
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -36,7 +47,12 @@ function CheckoutPage() {
             <span>${grandTotal.toFixed(2)}</span>
           </div>
           <div className="mt-6">
-            <button className="btn btn-primary w-full">Place Order</button>
+            <button
+              className="btn btn-primary w-full"
+              onClick={handlePlaceOrder}
+            >
+              Place Order
+            </button>
           </div>
         </div>
       )}
