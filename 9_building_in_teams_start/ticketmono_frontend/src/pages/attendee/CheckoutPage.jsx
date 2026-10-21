@@ -19,6 +19,16 @@ function CheckoutPage() {
     mutate(orderItems);
   }
 
+  if (isSuccess)
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-4">Order Placed!</h1>
+        <p className="text-base-content/60">
+          Thank you for shopping with ticketmono
+        </p>
+      </div>
+    );
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Checkout</h1>
@@ -50,8 +60,9 @@ function CheckoutPage() {
             <button
               className="btn btn-primary w-full"
               onClick={handlePlaceOrder}
+              disabled={isPending}
             >
-              Place Order
+              {isPending ? "Placing Order..." : "Place Order"}
             </button>
           </div>
         </div>
