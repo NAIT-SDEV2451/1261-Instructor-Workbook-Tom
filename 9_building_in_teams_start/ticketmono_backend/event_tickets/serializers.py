@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Event, TicketTier, Venue
+from .models import Event, TicketTier, Venue, Order
 
 User = get_user_model()
 
@@ -40,3 +40,8 @@ class CreateNewOrderItemSerializer(serializers.Serializer):
 
 class CreateNewOrderSerializer(serializers.Serializer):
     items = CreateNewOrderItemSerializer(many=True)
+
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ("id", "customer", "tickets", "created_at")
