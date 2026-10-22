@@ -61,12 +61,12 @@ When reviewing a pull request, there's a lot to consider. Here's a general frame
 
 ##### Micro problems/Decisions
   - Typos
-  - logical incosistencies
+  - logical inconsistencies
   - things that might cause a bug
 #####  Medium problems/Decisions
   - code smells
   - opportunity for refactors
-  - Things that you can extras to cshare across other files.
+  - Things that you can extract to share across other files.
 #####  Macro problems/Decisions
   - Is this worth fixing?
     - More on this later today when we talk about github issues and project boards.
@@ -112,7 +112,7 @@ You don't need to be perfect, here's some sample comments that I've left on this
 ![pr_comment_2](images/pr_comment_2.png)
 
 3. Example 3: This is more of a design mockup/ user flow discussion.
-![pr_comment_3](images/pr_comment_3.png
+![pr_comment_3](images/pr_comment_3.png)
 
 Let's discuss your ideas on what we can improve here.
 
