@@ -1,12 +1,33 @@
-import { useCart } from '../../hooks/useCart'
+import { useCart } from "../../hooks/useCart";
+import { useCreateOrder } from "../../hooks/useCreateOrder";
 
 function CheckoutPage() {
-  const { items } = useCart()
-  const cartItems = Object.values(items)
+  const { mutate, isPending, isSuccess } = useCreateOrder();
+  const { items } = useCart();
+  const cartItems = Object.values(items);
   const grandTotal = cartItems.reduce(
     (sum, item) => sum + item.quantity * parseFloat(item.tierPrice),
-    0
-  )
+    0,
+  );
+
+  function handlePlaceOrder() {
+    const orderItems = cartItems.map((item) => ({
+      event_id: item.eventId,
+      ticket_tier_id: item.tierId,
+      quantity: item.quantity,
+    }));
+    mutate(orderItems);
+  }
+
+  if (isSuccess)
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-4">Order Placed!</h1>
+        <p className="text-base-content/60">
+          Thank you for shopping with ticketmono
+        </p>
+      </div>
+    );
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -35,10 +56,19 @@ function CheckoutPage() {
             <span>Total</span>
             <span>${grandTotal.toFixed(2)}</span>
           </div>
+          <div className="mt-6">
+            <button
+              className="btn btn-primary w-full"
+              onClick={handlePlaceOrder}
+              disabled={isPending}
+            >
+              {isPending ? "Placing Order..." : "Place Order"}
+            </button>
+          </div>
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default CheckoutPage
+export default CheckoutPage;
