@@ -42,6 +42,8 @@ class CreateNewOrderSerializer(serializers.Serializer):
     items = CreateNewOrderItemSerializer(many=True)
 
 class OrderSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Order
         fields = ("id", "customer", "tickets", "created_at")
+        read_only_fields = ["id", "customer", "tickets", "created_at"]

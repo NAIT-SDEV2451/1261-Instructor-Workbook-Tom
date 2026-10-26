@@ -2,7 +2,7 @@ import { useCart } from "../../hooks/useCart";
 import { useCreateOrder } from "../../hooks/useCreateOrder";
 
 function CheckoutPage() {
-  const { mutate, isPending, isSuccess } = useCreateOrder();
+  const { mutate: createOrder, isPending, isSuccess } = useCreateOrder();
   const { items } = useCart();
   const cartItems = Object.values(items);
   const grandTotal = cartItems.reduce(
@@ -16,7 +16,7 @@ function CheckoutPage() {
       ticket_tier_id: item.tierId,
       quantity: item.quantity,
     }));
-    mutate(orderItems);
+    createOrder(orderItems);
   }
 
   if (isSuccess)
