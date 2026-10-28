@@ -7,6 +7,7 @@ from .serializers import (
     CreateNewOrderSerializer,
     EventListReadOnlySerializer,
     OrderSerializer,
+    OrderDetailSerializer
 )
 
 
@@ -24,7 +25,12 @@ class EventViewSet(viewsets.ModelViewSet):
 
 class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
-    serializer_class = OrderSerializer
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return OrderDetailSerializer
+        else:
+            return OrderSerializer
 
     def get_queryset(self):
         return Order.objects.filter(customer=self.request.user)
