@@ -1,25 +1,19 @@
 import { useParams } from "react-router-dom";
-
-const MOCK_ORDER = {
-  id: 1,
-  tickets: [
-    {
-      id: 1,
-      eventName: "Oilers vs Flames Game",
-      tierName: "upper balcony",
-      quantity: 2,
-    },
-    {
-      id: 1,
-      eventName: "Oilers vs Flames Game",
-      tierName: "rink side",
-      quantity: 2,
-    },
-  ],
-};
+import { useOrder } from "../../hooks/useOrder";
 
 function OrderConfirmationPage() {
   const { id } = useParams();
+  const { data: order, isLoading, isError } = useOrder(id);
+
+  if (isLoading)
+    return <p className="text-center py-8">Loading your order...</p>;
+
+  if (isError)
+    return (
+      <p className="text-center py-8 text-error">
+        Failed to load order. Please try again
+      </p>
+    );
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -33,19 +27,25 @@ function OrderConfirmationPage() {
       <div className="card bg-base-100 shadow">
         <div className="card-body">
           <h2 className="card-title text-lg mb-4">Your Tickets</h2>
-          {MOCK_ORDER.tickets.map((ticket) => (
+          {order.tickets.map((ticket) => (
             <div
               key={ticket.id}
               className="flex justify-between items-center py-3 border-b border-base-300 last:border-0"
             >
               <div>
-                <p className="font-semibold">{ticket.eventName}</p>
+                <p className="font-semibold">{ticket.tier.event_name}</p>
                 <p className="text-sm text-base-content/60">
-                  {ticket.tierName} × {ticket.quantity}
+                  {ticket.tier.name} × 1
                 </p>
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Total Price Section */}
+        <div className="flex justify-between pt-4 font-bold text-lg">
+          <span>Total</span>
+          <span>${parseFloat(order.total_price).toFixed(2)}</span>
         </div>
       </div>
     </div>
