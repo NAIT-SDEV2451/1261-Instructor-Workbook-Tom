@@ -1,31 +1,30 @@
-import { useCart } from '../../hooks/useCart'
-import { useCreateOrder } from '../../hooks/useCreateOrder'
+import { useNavigate } from "react-router-dom";
+
+import { useCart } from "../../hooks/useCart";
+import { useCreateOrder } from "../../hooks/useCreateOrder";
 
 function CheckoutPage() {
-  const { items } = useCart()
-  const cartItems = Object.values(items)
+  const navigate = useNavigate();
+
+  const { items } = useCart();
+  const cartItems = Object.values(items);
   const grandTotal = cartItems.reduce(
     (sum, item) => sum + item.quantity * parseFloat(item.tierPrice),
-    0
-  )
-  const { mutate, isPending, isSuccess } = useCreateOrder()
+    0,
+  );
+  const { mutate, isPending } = useCreateOrder();
 
   function handlePlaceOrder() {
     const orderItems = cartItems.map((item) => ({
       event_id: item.eventId,
       ticket_tier_id: item.tierId,
       quantity: item.quantity,
-    }))
-    mutate(orderItems)
-  }
-
-  if (isSuccess) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-4">Order Placed!</h1>
-        <p className="text-base-content/60">Thank you for your order.</p>
-      </div>
-    )
+    }));
+    mutate(orderItems, {
+      onSuccess: (order) => {
+        navigate(`/orders/${order.id}`);
+      },
+    });
   }
 
   return (
@@ -61,13 +60,13 @@ function CheckoutPage() {
               onClick={handlePlaceOrder}
               disabled={isPending}
             >
-              {isPending ? 'Placing Order...' : 'Place Order'}
+              {isPending ? "Placing Order..." : "Place Order"}
             </button>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default CheckoutPage
+export default CheckoutPage;
