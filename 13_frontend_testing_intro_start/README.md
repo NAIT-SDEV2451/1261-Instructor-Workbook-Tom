@@ -237,6 +237,53 @@ You'll still see `No test files found` — that's still correct, we haven't writ
 
 ---
 
+### Step 8 — Create a `renderWithProviders` Helper
+
+Our components don't work on their own. In the real app, `App.jsx` wraps everything in providers:
+
+- `QueryClientProvider` — `EventsListPage` calls `useEvents()`, which calls React Query's `useQuery`. Without a `QueryClient` above it, `useQuery` throws.
+- `BrowserRouter` — `EventCard` renders a `<Link>` to `/events/:id`. A `<Link>` outside a router throws too.
+
+Testing Library's `render` only renders the exact component you give it, so in a test there's no `App.jsx` and none of those providers. Instead of repeating the same wrapper in every test file, we'll write one helper that every test uses. Create `src/test/renderWithProviders.jsx`:
+
+```jsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
+import { render } from '@testing-library/react'
+
+export function renderWithProviders(ui, { initialEntries = ['/'] } = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        {ui}
+      </MemoryRouter>
+    </QueryClientProvider>
+  )
+}
+```
+
+> **Note:** the file extension is `.jsx`, not `.js` — it contains JSX, so Vite needs the `.jsx` extension to transform it.
+
+**What's happening here:**
+
+- `renderWithProviders(ui, ...)` works exactly like Testing Library's `render` — you pass it a component like `<EventCard event={event} />` — but it wraps that component in the providers first. It returns whatever `render` returns, so things like `container` are still available (you'll use `container` in Step 10).
+- **A new `QueryClient` is created on every call.** React Query caches responses. If all tests shared one client, the events fetched in one test would still be cached in the next. That would break the error test in Step 10, because the page would show cached events instead of making a new (failing) request. A fresh client per test means every test starts with an empty cache.
+- **`retry: false`** turns off React Query's automatic retries. By default, a failed query is retried 3 times with a growing delay between attempts before `isError` becomes `true`. That's great for real users on a flaky network, but in a test it means the error state takes several seconds to appear, and `waitFor` gives up after 1 second. With retries off, a `500` from MSW shows the error state right away.
+- **`MemoryRouter` instead of `BrowserRouter`.** `BrowserRouter` reads and writes the real browser URL bar, which doesn't exist in jsdom. `MemoryRouter` keeps the route history in memory, so `<Link>` and `useNavigate` work without a real browser.
+- **`initialEntries = ['/']`** sets which URL the router starts on. We don't need it in this example, but it lets a later test render a page as if the user were at a specific route, e.g. `renderWithProviders(<EventDetailPage />, { initialEntries: ['/events/1'] })`.
+- We only include the providers our components under test actually need. `AuthProvider` and `CartProvider` from `App.jsx` aren't needed for `EventCard` or `EventsListPage`, so we leave them out for now. If a future test renders a component that uses one of those contexts, this helper is the one place to add it.
+
+There's nothing to run yet — this file is a helper, not a test. You'll use it in every test from Step 9 onward.
+
+---
+
 ### Step 9 — Write Your First Test: `EventCard`
 
 `EventCard` (`src/components/EventCard.jsx`) is a good first test: it takes a single `event` prop and renders synchronously — no loading state, no network call. Create `src/__tests__/EventCard.test.jsx`:
