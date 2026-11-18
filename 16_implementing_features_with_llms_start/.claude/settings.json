@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "defaultMode": "manual",
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(pip install *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push *)",
+      "PowerShell(pip install *)",
+      "PowerShell(npm install *)",
+      "PowerShell(npm i *)"
+    ],
+    "deny": ["Read(./**/.env)", "Read(./**/.env.*)"]
+  }
+}
